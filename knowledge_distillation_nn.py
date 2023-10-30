@@ -1,87 +1,71 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
-#Teacher model: big model that teaches student
-def create_teacher_model(input_shape=(32,)):
+# Load the iris dataset from CSV
+data = pd.read_csv('iris_data.csv')
+X = data.drop('target', axis=1).values
+y = data['target'].values
+
+# Split the data into train and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Scale the data for better training performance
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+#Teacher model
+def create_teacher_model(input_shape=(4,)):
     model = keras.Sequential([
         keras.layers.Dense(128, activation='relu', input_shape=input_shape),
         keras.layers.Dense(64, activation='relu'),
-        keras.layers.Dense(10, activation='softmax')
+        keras.layers.Dense(3, activation='softmax')  # 3 classes for the iris dataset
     ])
     model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
     return model
 
-#Student model: smaller, more efficient model that learns from teacher
-def create_student_model(input_shape=(32,)):
+#Student model
+def create_student_model(input_shape=(4,)):
     model = keras.Sequential([
         keras.layers.Dense(32, activation='relu', input_shape=input_shape),
-        keras.layers.Dense(10, activation='softmax')
+        keras.layers.Dense(3, activation='softmax')  # 3 classes for the iris dataset
     ])
     model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
     return model
 
-
 def distillation_loss(y_true, y_pred, teacher_preds, temperature=1.0):
-    # Standard categorical cross-entropy for true labels
     true_loss = keras.losses.sparse_categorical_crossentropy(y_true, y_pred)
-
-    # KL divergence for soft labels
     soft_loss = keras.losses.kullback_leibler_divergence(tf.nn.softmax(teacher_preds / temperature),
                                                          tf.nn.softmax(y_pred / temperature))
-
     return true_loss + soft_loss
 
-def train_student_with_distillation(student, teacher, x_train, y_train, temperature=1.0, epochs=5, batch_size=32):
+def train_student_with_distillation(student, teacher, x_train, y_train, temperature=1.0, epochs=5):
     for epoch in range(epochs):
         print(f"Epoch {epoch + 1}/{epochs}")
-        num_batches = len(x_train) // batch_size
-        
-        for step in range(num_batches):
-            # Creating batches
-            x_batch = x_train[step*batch_size:(step+1)*batch_size]
-            y_batch = y_train[step*batch_size:(step+1)*batch_size]
-            
-            # Compute teacher predictions
+        for x_batch, y_batch in zip(x_train, y_train):
+            x_batch = np.expand_dims(x_batch, axis=0)
             teacher_preds = teacher.predict(x_batch)
-
-            # Train student
             with tf.GradientTape() as tape:
                 student_preds = student(x_batch, training=True)
                 loss = distillation_loss(y_batch, student_preds, teacher_preds, temperature)
-
-            # Compute and apply gradients
             grads = tape.gradient(loss, student.trainable_variables)
             student.optimizer.apply_gradients(zip(grads, student.trainable_variables))
 
-
 def main():
-    # Generate random training data
-    x_train = np.random.rand(1000, 32)
-    y_train = np.random.randint(10, size=(1000,))
-
-    # Generate random testing data
-    x_test = np.random.rand(200, 32)
-    y_test = np.random.randint(10, size=(200,))
-
     teacher = create_teacher_model()
-
-    # Note: In a real scenario, you'd want to train the teacher model first.
-    # For this example, we'll skip the teacher training for simplicity.
+    teacher.fit(X_train, y_train, epochs=50, validation_data=(X_test, y_test))  # Train the teacher model using fit
+    test_loss_teacher, test_acc_teacher = teacher.evaluate(X_test, y_test, verbose=2)
 
     student = create_student_model()
+    train_student_with_distillation(student, teacher, X_train, y_train, temperature=2.0, epochs=10) #Training with 10 epochs
+    test_loss, test_acc = student.evaluate(X_test, y_test, verbose=2)
 
-    train_student_with_distillation(student, teacher, x_train, y_train, temperature=2.0, epochs=5)
-
-    # Evaluate teacher model
-    teacher_loss, teacher_accuracy = teacher.evaluate(x_test, y_test, verbose=0)
-    print(f"Teacher Model - Loss: {teacher_loss:.4f}, Accuracy: {teacher_accuracy*100:.2f}%")
-
-    # Evaluate student model
-    student_loss, student_accuracy = student.evaluate(x_test, y_test, verbose=0)
-    print(f"Student Model - Loss: {student_loss:.4f}, Accuracy: {student_accuracy*100:.2f}%")
-
-
+    print(f"\nTeacher Model - Loss: {test_loss_teacher:.4f}, Accuracy: {test_acc_teacher * 100:.2f}%")
+    print(f"Student Model - Loss: {test_loss:.4f}, Accuracy: {test_acc * 100:.2f}%")
 
 if __name__ == "__main__":
     main()
