@@ -9,17 +9,11 @@ This library provides two advanced techniques for neural network implementation 
 
 This project demonstrates how to split a neural network into multiple sub-networks using TensorFlow and Keras.
 
-## Requirements
-
-1. Python 3.x
-2. All Python dependencies listed in `requirements.txt`
-3. Graphviz (for network visualization)
-
 ## Get Started
 
 1. Clone this repository: `git clone https://github.com/dnsantosuosso/NeuralNetworkTechniques.git`
 2. Install the required Python packages: `pip install -r requirements.txt`
-3. Install Graphviz:
+3. Install Graphviz (for NN visualization):
 
 - On macOS: `brew install graphviz`
 - On Linux (Debian/Ubuntu): `sudo apt-get install graphviz`
