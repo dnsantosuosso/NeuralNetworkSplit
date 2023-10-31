@@ -61,11 +61,22 @@ def main():
     test_loss_teacher, test_acc_teacher = teacher.evaluate(X_test, y_test, verbose=2)
 
     student = create_student_model()
-    train_student_with_distillation(student, teacher, X_train, y_train, temperature=2.0, epochs=10) #Training with 10 epochs
+    train_student_with_distillation(student, teacher, X_train, y_train, temperature=2.0, epochs=50) #Training with 10 epochs
     test_loss, test_acc = student.evaluate(X_test, y_test, verbose=2)
 
     print(f"\nTeacher Model - Loss: {test_loss_teacher:.4f}, Accuracy: {test_acc_teacher * 100:.2f}%")
     print(f"Student Model - Loss: {test_loss:.4f}, Accuracy: {test_acc * 100:.2f}%")
+
+    #Test both models:
+    test_data = [[0.61320186, -0.2450551, -0.46454853, -1.2375376]] #Run on a specific tensor for comparison
+    tensor = tf.constant(test_data, dtype=tf.float32)
+
+    output_1 = teacher.predict(tensor)
+    output_2 = student.predict(tensor)
+
+    print(f"\nTeacher Model - Prediction: {output_1}")
+    print(f"Student Model - Prediction: {output_2}")
+
 
 if __name__ == "__main__":
     main()
