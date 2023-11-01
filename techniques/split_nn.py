@@ -126,6 +126,43 @@ def trainSplitModels(model1, model2, X_train, y_train, X_val, y_val, epochs=10, 
 
     del tape  # Clean up the persistent gradient tape
 
+def save_weights_biases_to_file(models_list):
+    with open("../outputs/weights_biases.txt", "w") as file:
+        for model in models_list:
+            for layer in model.layers:
+                file.write(layer.name + "\n")
+                file.write("Weights:\n")
+                weights = layer.get_weights()[0]
+                for weight in weights:
+                    file.write(str(weight) + "\n")
+                file.write("Biases:\n")
+                biases = layer.get_weights()[1]
+                for bias in biases:
+                    file.write(str(bias) + "\n")
+            file.write("******************************************************************\n")
+def compare_weights_biases(original_model, model_1, model_2):
+    # Extract the weights and biases from each model
+    original_weights = [layer.get_weights() for layer in original_model.layers]
+    model_1_weights = [layer.get_weights() for layer in model_1.layers]
+    model_2_weights = [layer.get_weights() for layer in model_2.layers]
+
+    model_1_and_2_weights = model_1_weights + model_2_weights
+
+    str1 = nested_list_to_string(original_weights)
+    str2 = nested_list_to_string(model_1_and_2_weights)
+
+    booly = (str1 == str2)
+    if (booly):
+        print("Weights are equal")
+    else:
+        print("Weights are not equal")
+
+    return (booly)
+
+def nested_list_to_string(nested_list):
+    return ' '.join([str(item) if not isinstance(item, list) else nested_list_to_string(item) for item in nested_list])
+
+
 def main():
     # Setting random seeds for reproducibility
     tf.random.set_seed(42)
@@ -133,7 +170,8 @@ def main():
 
     #Create models
     original_model = create_simple_nn()
-    model_1, model_2 = split_network(original_model, 1)
+    split_layer_index = 1 
+    model_1, model_2 = split_network(original_model, split_layer_index)
 
     #Add dummy inputs: TODO Why?
     dummy_input = tf.random.uniform((1, 4))  # or any appropriate shape
@@ -172,22 +210,15 @@ def main():
 
     print("Original Model Output:", original_output)
     print("Combined Outputs from Split Models:", output_2)
-
-    #Print weights and biases
-    models_list = [original_model, model_1, model_2]
-    for model in models_list:
-        for layer in model.layers:
-            print(layer.name)
-            print("Weights:")
-            print(layer.get_weights()[0])  # weights
-            print("Biases:")
-            print(layer.get_weights()[1])  # biases
-        print("******************************************************************")
+    
+    # Save the weights and biases and compare them
+    save_weights_biases_to_file([original_model, model_1, model_2])
+    compare_weights_biases(original_model, model_1, model_2)
     
     #Plot the models
-    plot_model(original_model, to_file='../output_images/original_model.png', show_shapes=True)
-    plot_model(model_1, to_file='../output_images/model_1.png', show_shapes=True)
-    plot_model(model_2, to_file='../output_images/model_2.png', show_shapes=True)
+    plot_model(original_model, to_file='../outputs/original_model.png', show_shapes=True)
+    plot_model(model_1, to_file='../outputs/model_1.png', show_shapes=True)
+    plot_model(model_2, to_file='../outputs/model_2.png', show_shapes=True)
 
 
 if __name__ == "__main__":
